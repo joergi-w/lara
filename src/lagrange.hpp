@@ -77,10 +77,10 @@ private:
 
     // the arrays hold the alignment scores that are passed onto
     // the pairwiseAlignmentAlgorithm object
-    seqan::Score<int32_t, seqan::RnaStructureScore> maxProfitScore;
+    seqan::Score<ScoreType, seqan::RnaStructureScore> maxProfitScore;
 
     // vector holding the maximum profit for each alignment edge
-    std::vector<float> maxProfit;
+    std::vector<ScoreType> maxProfit;
 
     // vector holding the index of the maximum profit line
     std::vector<size_t> maxProfitEdge;
@@ -99,7 +99,7 @@ private:
     seqan::Rna5String sequenceB;
 
     // the best structural alignment score found so far
-    float bestStructuralAlignmentScore;
+    ScoreType bestStructuralAlignmentScore;
     Alignment bestAlignment;
     Alignment currentAlignment;
 
@@ -116,8 +116,8 @@ private:
     std::vector<std::vector<Contact>> possiblePartners;
 
     // scores
-    std::vector<float> sequencesScore;
-    std::map<PosPair, float> structureScore;
+    std::vector<ScoreType> sequencesScore;
+    std::map<PosPair, ScoreType> structureScore;
 
     // every alignment edge holds a priority queue that handles the possible partner edges
     // - the second argument denotes the index of the alignment edges
@@ -136,7 +136,7 @@ private:
         {
             size_t partner = seqan::value(adjIt);
             float probability = seqan::cargo(seqan::findEdge(graph.inter, origin, partner));
-            contacts.emplace_back(partner, probability);
+            contacts.emplace_back(partner, static_cast<ScoreType>(probability * scorefactor));
         }
     }
 
@@ -147,14 +147,14 @@ private:
         return smallerA || smallerB;
     }
 
-    void adaptPriorityQ(PosPair pair, float value)
+    void adaptPriorityQ(PosPair pair, ScoreType value)
     {
         priorityQ[pair.first].erase(edgeToPriorityQ[pair]);
         edgeToPriorityQ[pair] = priorityQ[pair.first].emplace(-value, pair.second).first;
     }
 
     // return gap cost
-    float evaluateLines(AlignmentRow const & rowA, AlignmentRow const & rowB)
+    ScoreType evaluateLines(AlignmentRow const & rowA, AlignmentRow const & rowB)
     {
         typedef typename seqan::Iterator<seqan::Gaps<seqan::Rna5String, seqan::ArrayGaps> const>::Type GapsIterator;
 
@@ -173,7 +173,7 @@ private:
         lines.clear();
 
         // Sum up gap score.
-        int32_t gapScore = 0;
+        ScoreType gapScore{0};
 
         while (it0 != itEnd0 && it1 != itEnd1)
         {
@@ -229,7 +229,7 @@ private:
         }
         SEQAN_ASSERT(it0 == itEnd0);
         SEQAN_ASSERT(it1 == itEnd1);
-        return gapScore / factor2int;
+        return gapScore;
     }
 
 public:
@@ -242,10 +242,10 @@ public:
 
         layer.resize(seqLen.first + seqLen.second);
         offset.resize(seqLen.first + seqLen.second);
-        maxProfitScore.data_gap_open = static_cast<int32_t>(params.laraGapOpen * factor2int);
-        maxProfitScore.data_gap_extend = static_cast<int32_t>(params.laraGapExtend * factor2int);
-        maxProfitScore.matrix.resize(seqLen.first * seqLen.second, std::numeric_limits<int32_t>::lowest() / 3 * 2);
-        maxProfitScore.dim = seqLen.second;
+        maxProfitScore.data_gap_open = static_cast<ScoreType>(params.laraGapOpen * scorefactor);
+        maxProfitScore.data_gap_extend = static_cast<ScoreType>(params.laraGapExtend * scorefactor);
+        maxProfitScore.dim = seqLen.first;
+        maxProfitScore.matrix.resize(seqLen.first * seqLen.second, negInfinity);
 
         // initialize()
         numIterations = 0ul;
@@ -313,9 +313,9 @@ public:
             extractContacts(headContact, bppGraphs.first, headNode);
             extractContacts(tailContact, bppGraphs.second, tailNode);
 
-            float alignScore = seqan::score(matrix,
-                                            sequenceA[sourceNode[edgeIdx]],
-                                            sequenceB[targetNode[edgeIdx]]);
+            ScoreType alignScore = seqan::score(matrix,
+                                                sequenceA[sourceNode[edgeIdx]],
+                                                sequenceB[targetNode[edgeIdx]]);
 
             possiblePartners[edgeIdx].emplace_back(edgeIdx, alignScore);
             structureScore[std::make_pair(edgeIdx, edgeIdx)] = negInfinity;
@@ -335,7 +335,7 @@ public:
                         {
                             size_t partnerIdx = partnerIter->second;
                             PosPair interaction{edgeIdx, partnerIdx};
-                            float structScore = 0.5f * (head.second + tail.second);
+                            ScoreType structScore = (head.second + tail.second) / 2;
                             possiblePartners[edgeIdx].emplace_back(partnerIdx, structScore);
                             structureScore[interaction] = structScore;
                             sequencesScore[edgeIdx] = alignScore;
@@ -344,16 +344,16 @@ public:
                             auto res = priorityQ[edgeIdx].emplace(-(structScore + alignScore), partnerIdx);
                             edgeToPriorityQ[interaction] = res.first;
                             _LOG(2, "dual idx " << dualIdx << " = (" << sourceNode[edgeIdx]
-                                                    << "-" << targetNode[edgeIdx] << ") -> (" << sourceNode[partnerIdx]
-                                                    << "-" << targetNode[partnerIdx] << ")" << std::endl);
+                                                << "-" << targetNode[edgeIdx] << ") -> (" << sourceNode[partnerIdx]
+                                                << "-" << targetNode[partnerIdx] << ")" << std::endl);
                             pairedEdgesToDual[interaction] = dualIdx++;
                             dualToPairedEdges.emplace_back(edgeIdx, partnerIdx);
 
                             if (structScore + alignScore > maxProfit[edgeIdx])
                             {
                                 _LOG(2, "maxProfit[" << edgeIdx << " (" << head.first << "," << tail.first
-                                                         << ")] = " << structScore << " + " << alignScore
-                                                         << " \tpartner " << partnerIdx << std::endl);
+                                                     << ")] = " << structScore/1024. << " + " << alignScore/1024.
+                                                     << " \tpartner " << partnerIdx << std::endl);
                                 maxProfit[edgeIdx] = structScore + alignScore;
                                 maxProfitEdge[edgeIdx] = partnerIdx;
                             }
@@ -371,8 +371,7 @@ public:
         // we had to evaluate _maxProfitScores after every update of either the
         // l or m edge
         for (size_t edgeIdx = 0ul; edgeIdx < sourceNode.size(); ++edgeIdx)
-            maxProfitScore.set(sourceNode[edgeIdx], targetNode[edgeIdx],
-                               static_cast<int32_t>(maxProfit[edgeIdx] * factor2int));
+            maxProfitScore.set(sourceNode[edgeIdx], targetNode[edgeIdx], maxProfit[edgeIdx]);
     }
 
     void updateScores(std::vector<float> & dual, std::list<size_t> const & dualIndices)
@@ -388,39 +387,27 @@ public:
         }
 
         for (size_t edgeIdx = 0ul; edgeIdx < sourceNode.size(); ++edgeIdx)
-            maxProfitScore.set(sourceNode[edgeIdx], targetNode[edgeIdx],
-                               static_cast<int32_t>(maxProfit[edgeIdx] * factor2int));
-
-        _LOG(3, "maxProfitScores" << std::endl);
-        for (size_t row = 0ul; row < maxProfitScore.dim; ++row)
-        {
-            _LOG(3, "[");
-            for (size_t col = 0ul; col < maxProfitScore.matrix.size() / maxProfitScore.dim; ++col)
-            {
-
-                _LOG(3, std::setw(14) << maxProfitScore.matrix[maxProfitScore.dim * col + row] << " ");
-            }
-            _LOG(3, "]" << std::endl);
-        }
+            maxProfitScore.set(sourceNode[edgeIdx], targetNode[edgeIdx], maxProfit[edgeIdx]);
     }
 
     /*!
      * \brief Performs the structural alignment.
      * \return The dual value (upper bound, solution of relaxed problem).
      */
-    float relaxed_solution()
+    ScoreType relaxed_solution()
     {
         seqan::resize(seqan::rows(currentAlignment), 2);
         seqan::assignSource(seqan::row(currentAlignment, 0), sequenceA);
         seqan::assignSource(seqan::row(currentAlignment, 1), sequenceB);
 
         // perform the alignment
-        return seqan::globalAlignment(currentAlignment, maxProfitScore, seqan::AffineGaps()) / factor2int;
+        return seqan::globalAlignment(currentAlignment, maxProfitScore, seqan::AffineGaps());
     }
 
-    float valid_solution(std::vector<float> & subgradient, std::list<size_t> & subgradientIndices, unsigned lookahead)
+    ScoreType valid_solution(std::vector<float> & subgradient, std::list<size_t> & subgradientIndices,
+                             unsigned lookahead)
     {
-        float gapScore = evaluateLines(seqan::row(currentAlignment, 0), seqan::row(currentAlignment, 1));
+        ScoreType gapScore = evaluateLines(seqan::row(currentAlignment, 0), seqan::row(currentAlignment, 1));
 
         std::vector<size_t> currentStructuralAlignment;
         std::vector<bool> inSolution;
@@ -472,7 +459,7 @@ public:
             }
         }
 
-        float lowerBound = 0.0f;
+        ScoreType lowerBound{0};
         std::map<size_t, size_t> contacts{};
         if (!subgradientIndices.empty())
         {
@@ -500,13 +487,14 @@ public:
             size_t const & maxPE = maxProfitEdge[idx];
             _LOG(3, "Alignment[" << idx << "; " << sourceNode[idx] << "," << targetNode[idx] << "] maxProfitEdge ["
                                       << maxPE << "; " << sourceNode[maxPE] << "," << targetNode[maxPE] << "] score "
-                                      << maxProfit[idx] << " inSolution " << inSolution[maxPE] << " rec "
+                                      << maxProfit[idx]/1024. << " inSolution " << inSolution[maxPE] << " rec "
                                       << (maxProfitEdge[maxPE] == idx) << std::endl);
         }
 
         // we have to substract the gapcosts, otherwise the lower bound might be higher than the upper bound
-        float primalValue = lowerBound + gapScore;
-        _LOG(2, "primal " << primalValue << " = " << lowerBound << " (lb) + " << gapScore << " (gap)" << std::endl);
+        ScoreType primalValue = lowerBound + gapScore;
+        _LOG(2, "primal " << primalValue/1024. << " = " << lowerBound/1024. << " (lb) + " << gapScore/1024. << " (gap)"
+                          << std::endl);
 
         // store the best alignment found so far
         if (primalValue > bestStructuralAlignmentScore)

@@ -77,20 +77,21 @@ enum Status
     CONTINUE
 };
 
-float const negInfinity = std::numeric_limits<float>::lowest();
-float const posInfinity = std::numeric_limits<float>::max();
+typedef int32_t ScoreType;
+ScoreType const scorefactor = 1024;
+ScoreType const negInfinity = std::numeric_limits<ScoreType>::lowest();
+ScoreType const posInfinity = std::numeric_limits<ScoreType>::max();
 
 //! \brief Score Matrix type used in LaRA.
-typedef seqan::Score<float, seqan::ScoreMatrix<seqan::Rna5>> RnaScoreMatrix;
-float const factor2int = 8192.f;
+typedef seqan::Score<ScoreType, seqan::ScoreMatrix<seqan::Rna5>> RnaScoreMatrix;
 
 //! \brief Pair of positions (usually in first and second sequence)
 typedef std::pair<size_t, size_t>                           PosPair;
-typedef std::pair<size_t, float>                            Contact;
-typedef std::set<std::pair<float, size_t>>                  PriorityQueue;
+typedef std::pair<size_t, ScoreType>                        Contact;
+typedef std::set<std::pair<ScoreType, size_t>>              PriorityQueue;
 typedef seqan::Align<seqan::Rna5String, seqan::ArrayGaps>   Alignment;
 typedef seqan::Row<Alignment>::Type                         AlignmentRow;
-typedef std::tuple<float, size_t, size_t>                   Interaction;    // probability, lineL, lineR
+typedef std::tuple<ScoreType, size_t, size_t>               Interaction;    // probability, lineL, lineR
 typedef std::set<Interaction>::iterator                     InteractionIterator;
 typedef std::pair<InteractionIterator, InteractionIterator> EdgeConflict;
 typedef std::set<InteractionIterator>                       InteractionSet;

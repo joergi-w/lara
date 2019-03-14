@@ -61,7 +61,7 @@ class Matching
 {
 private:
     std::map<size_t, size_t> contacts;
-    std::vector<float> const & sequencesScore;
+    std::vector<ScoreType> const & sequencesScore;
     std::vector<std::vector<Contact>> const & possiblePartners;
     size_t const algorithm;
 
@@ -74,7 +74,7 @@ private:
             || std::get<2>(a) == std::get<2>(b);
     }
 
-    InteractionSet solveConflicts(float & weight, std::vector<EdgeConflict> const & conflicts)
+    InteractionSet solveConflicts(ScoreType & weight, std::vector<EdgeConflict> const & conflicts)
     {
         if (conflicts.empty())
             return InteractionSet();
@@ -82,8 +82,8 @@ private:
         auto edge_cmp = [] (InteractionIterator const & a, InteractionIterator const & b) { return (*a) >= (*b); };
         InteractionIterator edgeS = std::min(conflicts.front().first, conflicts.front().second, edge_cmp);
         InteractionIterator edgeL = std::max(conflicts.front().first, conflicts.front().second, edge_cmp);
-        float weightS = -std::get<0>(*edgeS);
-        float weightL = -std::get<0>(*edgeL);
+        ScoreType weightS = -std::get<0>(*edgeS);
+        ScoreType weightL = -std::get<0>(*edgeL);
 
         if (conflicts.size() == 1)
         {
@@ -118,12 +118,12 @@ private:
         return eliminateS;
     }
 
-    float computeGreedyMatching(std::vector<size_t> const & currentAlignment,
-                                std::vector<bool> const & inSolution,
-                                size_t lookahead = 5ul)
+    ScoreType computeGreedyMatching(std::vector<size_t> const & currentAlignment,
+                                    std::vector<bool> const & inSolution,
+                                    size_t lookahead = 5ul)
     {
         // fill the priority queue with interaction edges
-        float score = 0.0f;
+        ScoreType score = 0;
         std::set<Interaction> queue;
         for (size_t const & line : currentAlignment)
         {
@@ -132,7 +132,7 @@ private:
             {
                 if (line != contact.first && inSolution[contact.first])
                 {
-                    float sc = 2 * contact.second; //structureScore[PosPair(line, pp)] + structureScore[PosPair(pp, line)];
+                    ScoreType sc = 2 * contact.second; //structureScore[PosPair(line, pp)] + structureScore[PosPair(pp, line)];
                     queue.emplace(-sc, std::min(line, contact.first), std::max(line, contact.first));
                 }
             }
@@ -161,7 +161,7 @@ private:
                         conflicts.emplace_back(*itA, *itB);
 
             // solve conflicts
-            float weight = 0.0f;
+            ScoreType weight = 0;
             InteractionSet eliminate = solveConflicts(weight, conflicts);
 
             // save MWM contacts and count score
@@ -186,10 +186,10 @@ private:
      * \param[in]  inSolution       Boolean vector that is true at position x, iff x is an active line.
      * \returns The score of the matching.
      */
-    float computeLemonMatching(std::vector<size_t> const & currentAlignment,
-                               std::vector<bool> const & inSolution)
+    ScoreType computeLemonMatching(std::vector<size_t> const & currentAlignment,
+                                   std::vector<bool> const & inSolution)
     {
-        float score = 0.0f;
+        ScoreType score = 0;
         contacts.clear();
 
         lemon::SmartGraph lemonG;
@@ -201,7 +201,7 @@ private:
             nodes[line] = lemonG.addNode();
         }
 
-        typedef lemon::SmartGraph::EdgeMap<float> EdgeMap;
+        typedef lemon::SmartGraph::EdgeMap<ScoreType> EdgeMap;
         EdgeMap weight(lemonG);
         lemon::SmartGraph::EdgeMap<PosPair> interactions(lemonG);
         std::map<PosPair, bool> computed{};
@@ -226,7 +226,7 @@ private:
         }
         lemon::MaxWeightedMatching<lemon::SmartGraph, EdgeMap> mwm(lemonG, weight);
         mwm.run();
-        float lemonweight = mwm.matchingWeight();
+        ScoreType lemonweight = mwm.matchingWeight();
         for (lemon::SmartGraph::EdgeIt edgeIt(lemonG); edgeIt!=lemon::INVALID; ++edgeIt)
         {
             PosPair inter = interactions[edgeIt];
@@ -241,7 +241,7 @@ private:
 #endif
 
 public:
-    Matching(std::vector<float> const & sequencesScore_,
+    Matching(std::vector<ScoreType> const & sequencesScore_,
              std::vector<std::vector<Contact>> const & possiblePartners_,
              size_t algorithm_)
         : contacts(), sequencesScore(sequencesScore_), possiblePartners(possiblePartners_), algorithm(algorithm_)
@@ -252,7 +252,7 @@ public:
         return contacts;
     }
 
-    float computeScore(std::vector<size_t> const & currentAlignment, std::vector<bool> const & inSolution)
+    ScoreType computeScore(std::vector<size_t> const & currentAlignment, std::vector<bool> const & inSolution)
     {
 #ifdef LEMON_FOUND
         if (algorithm == 0)

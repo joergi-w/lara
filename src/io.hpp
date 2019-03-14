@@ -95,8 +95,8 @@ public:
         if (size() <= 1)
             throw std::runtime_error("ERROR: The given file(s) must contain at least two sequences.");
 
-        for (seqan::RnaRecord & record : *this)
-            _LOG(3, record.bppMatrGraphs[0].inter << std::endl);
+//        for (seqan::RnaRecord & record : *this)
+//            _LOG(3, record.bppMatrGraphs[0].inter << std::endl);
     }
 
 private:
@@ -291,14 +291,16 @@ std::ostream & operator<<(std::ostream & stream, InputStorage & store)
 // FASTA output
 
 inline
-void printAlignment(std::ostream & stream, Alignment const & alignment, seqan::CharString const & nameA, seqan::CharString const & nameB)
+void printAlignment(std::ostream & stream, Alignment const & alignment, seqan::CharString const & nameA,
+                    seqan::CharString const & nameB)
 {
     stream << ">" << nameA << std::endl << seqan::row(alignment, 0) << std::endl;
     stream << ">" << nameB << std::endl << seqan::row(alignment, 1) << std::endl;
 }
 
 inline
-void printAlignment(seqan::CharString const & filename, Alignment const & alignment, seqan::CharString const & nameA, seqan::CharString const & nameB)
+void printAlignment(seqan::CharString const & filename, Alignment const & alignment, seqan::CharString const & nameA,
+                    seqan::CharString const & nameB)
 {
     if (seqan::empty(filename))
     {
@@ -387,4 +389,3 @@ std::ostream & operator<<(std::ostream & stream, OutputTCoffeeLibrary & library)
 }
 
 } // namespace lara
-

@@ -54,10 +54,10 @@ class SubgradientSolver
 public:
     Lagrange lagrange;
     float stepSizeFactor;
-    float bestLowerBound;
-    float bestUpperBound;
-    float currentLowerBound;
-    float currentUpperBound;
+    ScoreType bestLowerBound;
+    ScoreType bestUpperBound;
+    ScoreType currentLowerBound;
+    ScoreType currentUpperBound;
     size_t nondecreasingRounds;
     unsigned remainingIterations;
     PosPair sequenceIndices;
@@ -107,15 +107,15 @@ public:
 
     float calcStepsize(SubgradientSolver const & slv) const
     {
-        return slv.stepSizeFactor * (slv.bestUpperBound - slv.bestLowerBound) / slv.subgradientIndices.size();
+        return slv.stepSizeFactor * (slv.bestUpperBound - slv.bestLowerBound) / slv.subgradientIndices.size() / scorefactor;
     }
 
-    float getLowerBound(uint8_t sIdx)
+    ScoreType getLowerBound(uint8_t sIdx)
     {
         return solvers[sIdx].bestLowerBound;
     }
 
-    float getUpperBound(uint8_t sIdx)
+    ScoreType getUpperBound(uint8_t sIdx)
     {
         return solvers[sIdx].bestUpperBound;
     }
@@ -148,10 +148,10 @@ public:
                                                                                       solvers[idx].subgradientIndices,
                                                                                       params.matching);
 
-//                _LOG(2, "(" << solvers[idx].remainingIterations << ") \tbest: " << solvers[idx].bestUpperBound << "\t/"
-//                            << solvers[idx].bestLowerBound << "\t"
-//                            << "current: " << solvers[idx].currentUpperBound << "/\t" << solvers[idx].currentLowerBound
-//                            << "\t(" << solvers[idx].subgradientIndices.size() << ")\t");
+                _LOG(2, "(" << solvers[idx].remainingIterations << ") \tbest: " << solvers[idx].bestUpperBound/1024.
+                            << "\t/" << solvers[idx].bestLowerBound/1024. << "\t" << "current: "
+                            << solvers[idx].currentUpperBound/1024. << "/\t" << solvers[idx].currentLowerBound/1024.
+                            << "\t(" << solvers[idx].subgradientIndices.size() << ")\t");
 
                 // compare upper and lower bound
                 if (solvers[idx].currentUpperBound < solvers[idx].bestUpperBound)
@@ -184,12 +184,12 @@ public:
                 --solvers[idx].remainingIterations;
 
                 SEQAN_ASSERT_MSG(!solvers[idx].subgradientIndices.empty() ||
-                                 solvers[idx].currentUpperBound - solvers[idx].currentLowerBound < 0.1f,
+                                 solvers[idx].currentUpperBound - solvers[idx].currentLowerBound <= 1,
                                  "The bounds differ, although there are no subgradients.");
-                SEQAN_ASSERT_GT_MSG(solvers[idx].bestUpperBound + params.epsilon, solvers[idx].bestLowerBound,
+                SEQAN_ASSERT_GEQ_MSG(solvers[idx].bestUpperBound, solvers[idx].bestLowerBound,
                                     "The lower boundary exceeds the upper boundary.");
 
-                if (solvers[idx].bestUpperBound - solvers[idx].bestLowerBound < params.epsilon ||
+                if (solvers[idx].bestUpperBound - solvers[idx].bestLowerBound <= 1 ||
                     solvers[idx].remainingIterations == 0u)
                 {
                     #pragma omp critical

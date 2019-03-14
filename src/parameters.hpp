@@ -49,11 +49,11 @@ namespace lara
 {
 
 template<typename TSequenceValue, typename TTag>
-inline void setRnaScoreMatrix(seqan::Score<float, seqan::ScoreMatrix<TSequenceValue>> & matrix, TTag)
+inline void setRnaScoreMatrix(seqan::Score<ScoreType, seqan::ScoreMatrix<TSequenceValue>> & matrix, float scale, TTag)
 {
     float const * tab = RnaScoringMatrixData_<float, TSequenceValue, TTag>::getData();
-    seqan::arrayCopy(tab, tab + RnaScoringMatrixData_<float, TSequenceValue, TTag>::TAB_SIZE,
-                     matrix.data_tab);
+    std::transform(tab, tab + RnaScoringMatrixData_<float, TSequenceValue, TTag>::TAB_SIZE, matrix.data_tab,
+                   [&scale] (float val) { return static_cast<ScoreType>(val * scale * scorefactor); });
 }
 
 class Parameters
@@ -313,29 +313,24 @@ private:
         }
 
         // set score matrix
-        laraScoreMatrix.data_gap_extend = laraGapExtend;
-        laraScoreMatrix.data_gap_open   = laraGapOpen;
         if (empty(laraScoreMatrixName))
         {
             _LOG(2, "Predefined Ribosum65 matrix will be used." << std::endl);
-            setRnaScoreMatrix(laraScoreMatrix, Ribosum65N());
+            setRnaScoreMatrix(laraScoreMatrix, sequenceScale, Ribosum65N());
         }
         else if (loadScoreMatrix(laraScoreMatrix, toCString(laraScoreMatrixName)))
         {
             _LOG(2, "Provided scoring matrix will be used: " << laraScoreMatrixName << std::endl);
+            for (ScoreType & matrixEntry : laraScoreMatrix.data_tab)
+                matrixEntry *= sequenceScale;
         }
         else
         {
-            std::cerr << "Matrix file could not be opened: " << laraScoreMatrixName
-                      << "). Predefined Ribosum65 matrix will be used." << std::endl;
-            setRnaScoreMatrix(laraScoreMatrix, Ribosum65N());
+            std::cerr << "ERROR: Matrix file could not be opened: " << laraScoreMatrixName << std::endl;
+            return Status::EXIT_ERROR;
         }
-
-        // scale the matrix
-        laraScoreMatrix.data_gap_extend *= sequenceScale;
-        laraScoreMatrix.data_gap_open *= sequenceScale;
-        for (float & matrixEntry : laraScoreMatrix.data_tab)
-            matrixEntry *= sequenceScale;
+        laraScoreMatrix.data_gap_extend = static_cast<ScoreType>(laraGapExtend * sequenceScale * scorefactor);
+        laraScoreMatrix.data_gap_open   = static_cast<ScoreType>(laraGapOpen * sequenceScale * scorefactor);
 
         return Status::CONTINUE;
     }

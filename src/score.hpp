@@ -56,11 +56,11 @@ public:
     std::vector<int32_t> matrix;
     int32_t data_gap_open;
     int32_t data_gap_extend;
-    size_t dim;  // length of second sequence
+    size_t dim;  // length of first sequence
 
-    void set(size_t pos1, size_t pos2, int32_t value)
+    void set(size_t a, size_t b, int32_t value)
     {
-        matrix[dim * pos1 + pos2] = value;
+        matrix[dim * a + b] = value;
     }
 };
 
@@ -89,4 +89,3 @@ ConsensusScoreSequenceEntry<TSequence> sequenceEntryForScore(Score<int32_t, RnaS
 }
 
 } // namespace seqan
-
