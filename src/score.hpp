@@ -33,7 +33,7 @@
 
 #pragma once
 
-/*!\file alignment.hpp
+/*!\file score.hpp
  * \brief This file contains a position-dependent RNA scoring matrix.
  */
 
@@ -53,9 +53,15 @@ template <>
 class Score<int32_t, RnaStructureScore>
 {
 public:
-    std::vector<std::vector<int32_t>> matrix;
+    std::vector<int32_t> matrix;
     int32_t data_gap_open;
     int32_t data_gap_extend;
+    size_t dim;  // length of second sequence
+
+    void set(size_t pos1, size_t pos2, int32_t value)
+    {
+        matrix[dim * pos1 + pos2] = value;
+    }
 };
 
 template <typename TSequence>
@@ -70,7 +76,7 @@ int32_t score(Score<int32_t, RnaStructureScore> const & sc,
               ConsensusScoreSequenceEntry<TSeq1> const & entryH,
               ConsensusScoreSequenceEntry<TSeq2> const & entryV)
 {
-    return sc.matrix[position(entryH)][position(entryV)];
+    return sc.matrix[sc.dim * position(entryH) + position(entryV)];
 }
 
 template <typename TSequence, typename TPosition>

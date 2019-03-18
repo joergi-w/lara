@@ -244,9 +244,8 @@ public:
         offset.resize(seqLen.first + seqLen.second);
         maxProfitScore.data_gap_open = static_cast<int32_t>(params.laraGapOpen * factor2int);
         maxProfitScore.data_gap_extend = static_cast<int32_t>(params.laraGapExtend * factor2int);
-        maxProfitScore.matrix.resize(seqLen.first);
-        for (std::vector<int32_t> & elem : maxProfitScore.matrix)
-            elem.resize(seqLen.second, std::numeric_limits<int32_t>::lowest() / 3 * 2);
+        maxProfitScore.matrix.resize(seqLen.first * seqLen.second, std::numeric_limits<int32_t>::lowest() / 3 * 2);
+        maxProfitScore.dim = seqLen.second;
 
         // initialize()
         numIterations = 0ul;
@@ -372,8 +371,8 @@ public:
         // we had to evaluate _maxProfitScores after every update of either the
         // l or m edge
         for (size_t edgeIdx = 0ul; edgeIdx < sourceNode.size(); ++edgeIdx)
-            maxProfitScore.matrix[sourceNode[edgeIdx]][targetNode[edgeIdx]] = static_cast<int32_t>(maxProfit[edgeIdx]
-                                                                                                   * factor2int);
+            maxProfitScore.set(sourceNode[edgeIdx], targetNode[edgeIdx],
+                               static_cast<int32_t>(maxProfit[edgeIdx] * factor2int));
     }
 
     void updateScores(std::vector<float> & dual, std::list<size_t> const & dualIndices)
@@ -389,16 +388,17 @@ public:
         }
 
         for (size_t edgeIdx = 0ul; edgeIdx < sourceNode.size(); ++edgeIdx)
-            maxProfitScore.matrix[sourceNode[edgeIdx]][targetNode[edgeIdx]] = static_cast<int32_t>(maxProfit[edgeIdx]
-                                                                                                   * factor2int);
+            maxProfitScore.set(sourceNode[edgeIdx], targetNode[edgeIdx],
+                               static_cast<int32_t>(maxProfit[edgeIdx] * factor2int));
 
         _LOG(3, "maxProfitScores" << std::endl);
-        for (auto & row : maxProfitScore.matrix)
+        for (size_t row = 0ul; row < maxProfitScore.dim; ++row)
         {
-            _LOG(3, "[ ");
-            for (int32_t sc : row)
+            _LOG(3, "[");
+            for (size_t col = 0ul; col < maxProfitScore.matrix.size() / maxProfitScore.dim; ++col)
             {
-                _LOG(3, std::setw(14) << sc << " ");
+
+                _LOG(3, std::setw(14) << maxProfitScore.matrix[maxProfitScore.dim * col + row] << " ");
             }
             _LOG(3, "]" << std::endl);
         }
