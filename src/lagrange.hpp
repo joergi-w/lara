@@ -130,6 +130,8 @@ private:
     // mapping from the index of the dual variable to the pair of alignment edge indices
     std::vector<PosPair> dualToPairedEdges; // former _YToIndex
 
+    float seqscale = 1.f;
+
     void extractContacts(std::vector<Contact> & contacts, seqan::RnaStructureGraph const & graph, size_t origin)
     {
         for (seqan::RnaAdjacencyIterator adjIt(graph.inter, origin); !seqan::atEnd(adjIt); seqan::goNext(adjIt))
@@ -278,9 +280,9 @@ public:
         }
         _LOG(2, "residueCount = " << residueCount << " (" << seqLen.first << "+" << seqLen.second << ")" << std::endl);
 
-        generateEdges(getEdgeIdx, sequenceA, sequenceB, params.laraScoreMatrix, params.suboptimalDiff);
+        seqscale = generateEdges(getEdgeIdx, sequenceA, sequenceB, params.laraScoreMatrix, params.suboptimalDiff);
+        _LOG(2, "Sequence scale set to " << seqscale << std::endl);
         size_t numEdges = getEdgeIdx.size();
-
         sourceNode.reserve(numEdges);
         targetNode.reserve(numEdges);
         primal.resize(numEdges, 0.0);
@@ -297,11 +299,14 @@ public:
             targetNode.push_back(edge.first.second);
         }
         bppGraphs = std::make_pair(seqan::front(recordA.bppMatrGraphs), seqan::front(recordB.bppMatrGraphs));
-        start(params.laraScoreMatrix);
-    }
+        RnaScoreMatrix matrix(params.laraScoreMatrix);
+        matrix.data_gap_open *= seqscale;
+        matrix.data_gap_extend *= seqscale;
+        for (float & matrixEntry : matrix.data_tab)
+            matrixEntry *= seqscale;
 
-    void start(RnaScoreMatrix const & matrix)
-    {
+        // start
+
         size_t dualIdx = 0ul;
         size_t numPartners = 0ul;
         for (size_t edgeIdx = 0ul; edgeIdx < sourceNode.size(); ++edgeIdx)
@@ -338,7 +343,6 @@ public:
                             float structScore = 0.5f * (head.second + tail.second);
                             possiblePartners[edgeIdx].emplace_back(partnerIdx, structScore);
                             structureScore[interaction] = structScore;
-                            sequencesScore[edgeIdx] = alignScore;
 
                             // insert element into the priority queue
                             auto res = priorityQ[edgeIdx].emplace(-(structScore + alignScore), partnerIdx);
