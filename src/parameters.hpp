@@ -73,6 +73,8 @@ public:
     unsigned                 affineLinearDgs{0u};
     // Use the global local or global-Unconstrained algorithm (default: global(0) - local(1) )
     bool                     alignLocally{false};
+    // The front and end of the longer sequence can be aligned to gaps without penalty.
+    bool                     freeEndGaps{false};
     // Parameter used during the RNAfold execution to select the minimum energy to be considered
     float                    thrBppm{1e-15f}; // old Lara: 0.1
     // number of iterations
@@ -188,6 +190,10 @@ private:
         addOption(parser, ArgParseOption("a", "local",
                                          "Perform local alignment. (False)"));
 
+        addOption(parser, ArgParseOption("f", "freegaps",
+                                         "The front and end of the longer sequence can be aligned to gaps without "
+                                         "penalty. (False)"));
+
         addOption(parser, ArgParseOption("tb", "thrBppm",
                                          "(Parameter used during the RNAfold execution to select the minimum energy to be "
                                          "considered (1e-15)",
@@ -259,6 +265,7 @@ private:
         getOptionValue(_VERBOSE_LEVEL, parser, "verbose");
         getOptionValue(affineLinearDgs, parser, "affineLinearDgs");
         getOptionValue(alignLocally, parser, "local");
+        getOptionValue(freeEndGaps, parser, "freegaps");
         getOptionValue(thrBppm, parser, "thrBppm");
         getOptionValue(numIterations, parser, "iterations");
         getOptionValue(maxNondecrIterations, parser, "maxNondecreasingIterations");

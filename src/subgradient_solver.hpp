@@ -160,8 +160,10 @@ public:
                 if (!at_work[idx])
                     continue;
 
+                // alignment
                 solvers[idx].currentUpperBound = solvers[idx].lagrange.relaxed_solution();
 
+                // matching
                 solvers[idx].currentLowerBound = solvers[idx].lagrange.valid_solution(solvers[idx].subgradient,
                                                                                       solvers[idx].subgradientIndices,
                                                                                       params.matching);

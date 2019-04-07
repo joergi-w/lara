@@ -130,6 +130,8 @@ private:
     // mapping from the index of the dual variable to the pair of alignment edge indices
     std::vector<PosPair> dualToPairedEdges; // former _YToIndex
 
+    bool freeEndGaps{};
+
     void extractContacts(std::vector<Contact> & contacts, seqan::RnaStructureGraph const & graph, size_t origin)
     {
         for (seqan::RnaAdjacencyIterator adjIt(graph.inter, origin); !seqan::atEnd(adjIt); seqan::goNext(adjIt))
@@ -174,6 +176,17 @@ private:
 
         // Sum up gap score.
         int32_t gapScore = 0;
+        int32_t gapScore1 = 0;
+
+        // Consider free end gaps.
+        if (freeEndGaps)
+        {
+            while (it1 != itEnd1 && seqan::isGap(it1))
+            {
+                ++it1;
+                ++sourcePos.first;
+            }
+        }
 
         while (it0 != itEnd0 && it1 != itEnd1)
         {
@@ -201,11 +214,11 @@ private:
             {
                 if (!isGapOpen1)
                 {
-                    gapScore += maxProfitScore.data_gap_open;
+                    gapScore1 = maxProfitScore.data_gap_open;
                 }
                 else
                 {
-                    gapScore += maxProfitScore.data_gap_extend;
+                    gapScore1 += maxProfitScore.data_gap_extend;
                 }
                 isGapOpen1 = true;
                 ++sourcePos.first;
@@ -213,6 +226,8 @@ private:
             else
             {
                 isGapOpen1 = false;
+                gapScore += gapScore1;
+                gapScore1 = 0;
             }
 
             // Match or mismatch
@@ -227,6 +242,10 @@ private:
             ++it0;
             ++it1;
         }
+
+        if (!freeEndGaps)
+            gapScore += gapScore1;
+
         SEQAN_ASSERT(it0 == itEnd0);
         SEQAN_ASSERT(it1 == itEnd1);
         return gapScore / factor2int;
@@ -253,6 +272,8 @@ public:
         residueCount = 0ul;
         dimension.first = 0ul;
         dimension.second = 0ul;
+
+        freeEndGaps = params.freeEndGaps;
 
         // score of best alignment
         bestStructuralAlignmentScore = negInfinity;
@@ -415,7 +436,14 @@ public:
         seqan::assignSource(seqan::row(currentAlignment, 1), sequenceB);
 
         // perform the alignment
-        return seqan::globalAlignment(currentAlignment, maxProfitScore, seqan::AffineGaps()) / factor2int;
+        float res{};
+        if (freeEndGaps)
+            res = seqan::globalAlignment(currentAlignment, maxProfitScore,
+                                          seqan::AlignConfig<true, false, false, true>(),
+                                          seqan::AffineGaps()) / factor2int;
+        else
+            res = seqan::globalAlignment(currentAlignment, maxProfitScore, seqan::AffineGaps()) / factor2int;
+        return res;
     }
 
     float valid_solution(std::vector<float> & subgradient, std::list<size_t> & subgradientIndices, unsigned lookahead)
