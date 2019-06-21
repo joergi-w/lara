@@ -70,38 +70,45 @@ class InputStorage : public std::vector<seqan::RnaRecord>
 public:
     explicit InputStorage(Parameters const & params)
     {
-        readRnaFile(params.inFile);
-        readRnaFile(params.refFile);
+        readRnaFile(params.inFile, params.num_threads);
+        readRnaFile(params.refFile, params.num_threads);
 
         // If not present, compute the weighted interaction edges using ViennaRNA functions.
         bool const logScoring = params.structureScoring == ScoringMode::LOGARITHMIC;
-        bool usedVienna = false;
-        for (seqan::RnaRecord & record : *this)
-            computeStructure(record, usedVienna, logScoring);
-        if (usedVienna)
-            _LOG(2, "Computed missing base pair probabilities with ViennaRNA library." << std::endl);
+
+#ifndef VIENNA_RNA_FOUND
+        std::cerr << "Cannot compute a structure without the ViennaRNA library. "
+                     "Please install ViennaRNA and try again." << std::endl;
+        exit(1);
+#endif
+
+        //#pragma omp parallel for num_threads(params.num_threads)
+        for (size_t idx = 0ul; idx < size(); ++idx)
+        {
+            if (seqan::empty(operator[](idx).bppMatrGraphs))
+                computeStructure(operator[](idx), logScoring);
+        }
 
         if (!params.dotplotFiles.empty())
         {
             // Load base pair probabilities from dot plot file.
-            for (std::string const & filename : params.dotplotFiles)
+            size_t offset = size();
+            resize(offset + params.dotplotFiles.size());
+
+            #pragma omp parallel for num_threads(params.num_threads)
+            for (size_t idx = 0ul; idx < params.dotplotFiles.size(); ++idx)
             {
-                seqan::RnaRecord rec;
-                extractBppFromDotplot(rec, filename);
-                push_back(rec);
+                extractBppFromDotplot(operator[](idx + offset), params.dotplotFile[idx]);
             }
             _LOG(2, "Successfully extracted base pair probabilities from given dotplot files." << std::endl);
         }
 
         if (size() <= 1)
             throw std::runtime_error("ERROR: The given file(s) must contain at least two sequences.");
-
-        for (seqan::RnaRecord & record : *this)
-            _LOG(3, record.bppMatrGraphs[0].inter << std::endl);
     }
 
 private:
-    void readRnaFile(std::string const & filename)
+    void readRnaFile(std::string const & filename, unsigned num_threads)
     {
         if (filename.empty())
             return;
@@ -130,18 +137,23 @@ private:
             seqan::close(seqFileIn);
 
             // Fill the data structures: identifier and sequence.
-            reserve(size() + seqan::length(ids));
+            size_t offset = size();
+            resize(offset + seqan::length(ids));
             SEQAN_ASSERT_EQ(seqan::length(ids), seqan::length(seqs));
-            for (size_t idx = 0ul; idx < seqan::length(ids); ++idx)
-            {
-                seqan::RnaRecord rec{};
-                rec.name     = ids[idx];
-                rec.sequence = seqan::convert<seqan::Rna5String>(seqs[idx]);
 
-                // For FastQ files: add quality annotation.
-                if (seqan::length(quals) == seqan::length(ids))
-                    rec.quality = quals[idx];
-                push_back(rec);
+            #pragma omp parallel for num_threads(num_threads)
+            for (size_t idx = 0u; idx < seqan::length(ids); ++idx)
+            {
+                operator[](idx + offset).name = ids[idx];
+                operator[](idx + offset).sequence = seqan::convert<seqan::Rna5String>(seqs[idx]);
+            }
+
+            // For FastQ files: add quality annotation.
+            if (seqan::length(quals) == seqan::length(ids))
+            {
+                #pragma omp parallel for num_threads(num_threads)
+                for (size_t idx = 0ul; idx < seqan::length(quals); ++idx)
+                    operator[](idx + offset).quality = quals[idx];
             }
         }
     }
@@ -171,7 +183,6 @@ private:
                                               [] (unsigned char x) { return std::isalpha(x) == 0; }),
                                line.end());
                     seqan::append(rnaRecord.sequence, line);
-                    std::cerr << line << std::endl;
                 }
                 break;
             }
@@ -225,13 +236,8 @@ private:
         append(rnaRecord.fixedGraphs, fixedGraph);
     }
 
-    static void computeStructure(seqan::RnaRecord & rnaRecord, bool & usedVienna, bool logStructureScoring)
+    void computeStructure(seqan::RnaRecord & rnaRecord, bool logStructureScoring)
     {
-        if (!seqan::empty(rnaRecord.bppMatrGraphs))
-            return;
-
-#ifdef VIENNA_RNA_FOUND
-        usedVienna = true;
         size_t const length = seqan::length(rnaRecord.sequence);
         seqan::String<char, seqan::CStyle> sequence{rnaRecord.sequence};
 
@@ -293,19 +299,21 @@ std::ostream & operator<<(std::ostream & stream, InputStorage & store)
 
 // FASTA output
 
-inline void printAlignment(std::ostream & stream,
-                           Alignment const & alignment,
-                           std::string const & nameA,
-                           std::string const & nameB)
+inline
+void printAlignment(std::ostream & stream,
+                    Alignment const & alignment,
+                    std::string const & nameA,
+                    std::string const & nameB)
 {
     stream << ">" << nameA << std::endl << alignment.first << std::endl;
     stream << ">" << nameB << std::endl << alignment.second << std::endl;
 }
 
-inline void printAlignment(std::string const & filename,
-                           Alignment const & alignment,
-                           std::string const & nameA,
-                           std::string const & nameB)
+inline
+void printAlignment(seqan::CharString const & filename,
+                    Alignment const & alignment,
+                    std::string const & nameA,
+                    std::string const & nameB)
 {
     if (filename.empty())
     {

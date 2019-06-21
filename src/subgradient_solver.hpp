@@ -234,6 +234,9 @@ public:
             // Fill the scores.
             SetScoreFunction set_score = std::bind(&RnaScoreType::set, &(scores[aliIdx]), seqIdx,
                                                    std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+//                                       = [&](size_t idx1, size_t idx2, TScore value){
+//                                           scores[aliIdx].set(seqIdx, idx1, idx2, value);
+//                                       };
 
             // Fill the solvers.
             solvers.emplace_back(*iter, store, set_score, params);
