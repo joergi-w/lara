@@ -6,3 +6,6 @@
 	path = include/lemon
 	url = https://github.com/seqan/lemon.git
 	branch = master
+[submodule "include/ViennaRNA"]
+	path = include/ViennaRNA
+	url = git@github.com:ViennaRNA/ViennaRNA.git

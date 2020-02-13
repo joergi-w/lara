@@ -16,7 +16,7 @@ message ("${ColourBold}Compiler detection${ColourReset}")
 # change version after every release
 project(lara
         VERSION 2.0.1
-        LANGUAGES CXX)
+        LANGUAGES CXX C)
 set(PROJECT_DESCRIPTION "LaRA: Lagrangian Relaxed structural Alignment")
 set (LARA_SOURCE_FILES src/lara.cpp)
 add_executable (lara ${LARA_SOURCE_FILES})
@@ -95,12 +95,122 @@ else()
 endif ()
 
 #ViennaRNA
-set (VIENNA_FOUND "FALSE")
-find_library(VIENNA_RNA_LIB libRNA.a)
-if (VIENNA_RNA_LIB)
+#set (VIENNA_FOUND "FALSE")
+#find_library(VIENNA_RNA_LIB libRNA.a)
+#if (VIENNA_RNA_LIB)
+#    add_definitions(-DVIENNA_RNA_FOUND)
+#    set (VIENNA_FOUND "TRUE")
+#endif ()
+find_path(VIENNA_PATH NAMES ViennaRNA/fold.h HINTS ${CMAKE_CURRENT_SOURCE_DIR}/include/ViennaRNA/src)
+if (VIENNA_PATH)
+    set (CMAKE_INCLUDE_PATH ${VIENNA_PATH} ${CMAKE_INCLUDE_PATH})
     add_definitions(-DVIENNA_RNA_FOUND)
     set (VIENNA_FOUND "TRUE")
+
+    add_library(zzz
+                ${VIENNA_PATH}/ViennaRNA/fold_compound.c
+                ${VIENNA_PATH}/ViennaRNA/dist_vars.c
+                ${VIENNA_PATH}/ViennaRNA/part_func.c
+                ${VIENNA_PATH}/ViennaRNA/part_func_wrappers.c
+                ${VIENNA_PATH}/ViennaRNA/pf_fold.c
+                ${VIENNA_PATH}/ViennaRNA/treedist.c
+                ${VIENNA_PATH}/ViennaRNA/inverse.c
+                ${VIENNA_PATH}/ViennaRNA/ProfileDist.c
+                ${VIENNA_PATH}/ViennaRNA/RNAstruct.c
+                ${VIENNA_PATH}/ViennaRNA/mfe.c
+                ${VIENNA_PATH}/ViennaRNA/mfe_window.c
+                ${VIENNA_PATH}/ViennaRNA/mfe_wrappers.c
+                ${VIENNA_PATH}/ViennaRNA/mfe_window_wrappers.c
+                ${VIENNA_PATH}/ViennaRNA/fold.c
+                ${VIENNA_PATH}/ViennaRNA/stringdist.c
+                ${VIENNA_PATH}/ViennaRNA/Lfold.c
+                ${VIENNA_PATH}/ViennaRNA/cofold.c
+                ${VIENNA_PATH}/ViennaRNA/part_func_co.c
+                ${VIENNA_PATH}/ViennaRNA/concentrations.c
+                ${VIENNA_PATH}/ViennaRNA/ProfileAln.c
+                ${VIENNA_PATH}/ViennaRNA/duplex.c
+                ${VIENNA_PATH}/ViennaRNA/alifold.c
+                ${VIENNA_PATH}/ViennaRNA/alipfold.c
+                ${VIENNA_PATH}/ViennaRNA/LPfold.c
+                ${VIENNA_PATH}/ViennaRNA/part_func_up.c
+                ${VIENNA_PATH}/ViennaRNA/ribo.c
+                ${VIENNA_PATH}/ViennaRNA/MEA.c
+                ${VIENNA_PATH}/ViennaRNA/mm.c
+                ${VIENNA_PATH}/ViennaRNA/2Dfold.c
+                ${VIENNA_PATH}/ViennaRNA/2Dpfold.c
+                ${VIENNA_PATH}/ViennaRNA/plex_functions.c
+                ${VIENNA_PATH}/ViennaRNA/ali_plex.c
+                ${VIENNA_PATH}/ViennaRNA/c_plex.c
+                ${VIENNA_PATH}/ViennaRNA/plex.c
+                ${VIENNA_PATH}/ViennaRNA/snofold.c
+                ${VIENNA_PATH}/ViennaRNA/snoop.c
+                ${VIENNA_PATH}/ViennaRNA/gquad.c
+                ${VIENNA_PATH}/ViennaRNA/perturbation_fold.c
+                ${VIENNA_PATH}/ViennaRNA/centroid.c
+                ${VIENNA_PATH}/ViennaRNA/model.c
+                ${VIENNA_PATH}/ViennaRNA/dp_matrices.c
+                ${VIENNA_PATH}/ViennaRNA/boltzmann_sampling.c
+                ${VIENNA_PATH}/ViennaRNA/bs_wrappers.c
+                ${VIENNA_PATH}/ViennaRNA/equilibrium_probs.c
+                ${VIENNA_PATH}/ViennaRNA/alphabet.c
+                ${VIENNA_PATH}/ViennaRNA/sequence.c
+                ${VIENNA_PATH}/ViennaRNA/grammar.c
+                ${VIENNA_PATH}/ViennaRNA/utils/utils.c
+                ${VIENNA_PATH}/ViennaRNA/utils/string_utils.c
+                ${VIENNA_PATH}/ViennaRNA/utils/structure_utils.c
+                ${VIENNA_PATH}/ViennaRNA/utils/structure_tree.c
+                ${VIENNA_PATH}/ViennaRNA/utils/msa_utils.c
+                ${VIENNA_PATH}/ViennaRNA/utils/higher_order_functions.c
+                ${VIENNA_PATH}/ViennaRNA/utils/cpu.c
+                ${VIENNA_PATH}/ViennaRNA/io/io_utils.c
+                ${VIENNA_PATH}/ViennaRNA/io/file_formats.c
+                ${VIENNA_PATH}/ViennaRNA/io/file_formats_msa.c
+                ${VIENNA_PATH}/ViennaRNA/search/BoyerMoore.c
+                ${VIENNA_PATH}/ViennaRNA/commands.c
+                ${VIENNA_PATH}/ViennaRNA/units.c
+                ${VIENNA_PATH}/ViennaRNA/combinatorics.c
+                ${VIENNA_PATH}/ViennaRNA/constraints/constraints.c
+                ${VIENNA_PATH}/ViennaRNA/constraints/SHAPE.c
+                ${VIENNA_PATH}/ViennaRNA/constraints/hard.c
+                ${VIENNA_PATH}/ViennaRNA/constraints/ligand.c
+                ${VIENNA_PATH}/ViennaRNA/eval.c
+                ${VIENNA_PATH}/ViennaRNA/eval_wrappers.c
+                ${VIENNA_PATH}/ViennaRNA/params/default.c
+                ${VIENNA_PATH}/ViennaRNA/params/params.c
+                ${VIENNA_PATH}/ViennaRNA/params/convert.c
+                ${VIENNA_PATH}/ViennaRNA/datastructures/basic_datastructures.c
+                ${VIENNA_PATH}/ViennaRNA/datastructures/lists.c
+                ${VIENNA_PATH}/ViennaRNA/datastructures/char_stream.c
+                ${VIENNA_PATH}/ViennaRNA/datastructures/stream_output.c
+                ${VIENNA_PATH}/ViennaRNA/datastructures/hash_tables.c
+                ${VIENNA_PATH}/ViennaRNA/datastructures/heap.c
+                ${VIENNA_PATH}/ViennaRNA/special_const.c
+                ${VIENNA_PATH}/ViennaRNA/params/io.c
+                ${VIENNA_PATH}/ViennaRNA/constraints/soft.c
+                ${VIENNA_PATH}/ViennaRNA/subopt.c
+                ${VIENNA_PATH}/ViennaRNA/unstructured_domains.c
+                ${VIENNA_PATH}/ViennaRNA/loops/external.c
+                ${VIENNA_PATH}/ViennaRNA/loops/external_bt.c
+                ${VIENNA_PATH}/ViennaRNA/loops/external_pf.c
+                ${VIENNA_PATH}/ViennaRNA/loops/hairpin.c
+                ${VIENNA_PATH}/ViennaRNA/loops/hairpin_bt.c
+                ${VIENNA_PATH}/ViennaRNA/loops/hairpin_pf.c
+                ${VIENNA_PATH}/ViennaRNA/loops/internal.c
+                ${VIENNA_PATH}/ViennaRNA/loops/internal_bt.c
+                ${VIENNA_PATH}/ViennaRNA/loops/internal_pf.c
+                ${VIENNA_PATH}/ViennaRNA/loops/multibranch.c
+                ${VIENNA_PATH}/ViennaRNA/loops/multibranch_bt.c
+                ${VIENNA_PATH}/ViennaRNA/loops/multibranch_pf.c
+                ${VIENNA_PATH}/ViennaRNA/move_set.c
+                ${VIENNA_PATH}/ViennaRNA/landscape/move.c
+                ${VIENNA_PATH}/ViennaRNA/landscape/findpath.c
+                ${VIENNA_PATH}/ViennaRNA/landscape/neighbor.c
+                ${VIENNA_PATH}/ViennaRNA/landscape/walk.c
+            )
+else()
+    message (STATUS "Cannot find header files of the ViennaRNA library, which is required to fold the sequences.")
 endif ()
+
 
 # others
 find_package(OpenMP QUIET)
@@ -112,7 +222,7 @@ message(   "     SEQAN       ${SEQAN_FOUND}   \t${SEQAN_VERSION_STRING}")
 message(   "     ZLIB        ${ZLIB_FOUND}   \t${ZLIB_VERSION_STRING}")
 message(   "     BZIP2       ${BZIP2_FOUND}   \t${BZIP2_VERSION_STRING}")
 message(   "     OPENMP      ${OPENMP_FOUND}   \t${OpenMP_CXX_FLAGS}")
-message(   "     ViennaRNA   ${VIENNA_FOUND}   \t${VIENNA_RNA_LIB}")
+message(   "     ViennaRNA   ${VIENNA_FOUND}   \t${VIENNA_PATH}")
 message(   "     Lemon       ${LEMON_FOUND}   \t${LEMON_PATH}")
 
 # Warn if OpenMP was not found.
@@ -170,7 +280,10 @@ set (SEQAN_APP_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set (SEQAN_APP_VERSION_PATCH ${PROJECT_VERSION_PATCH})
 set (SEQAN_APP_VERSION "${PROJECT_VERSION}")
 
-target_link_libraries (lara ${SEQAN_LIBRARIES} ${VIENNA_RNA_LIB})
+#set_target_properties(zzz PROPERTIES LINKER_LANGUAGE C)
+target_compile_definitions(zzz PRIVATE HAVE_CONFIG_H)
+target_include_directories(zzz PRIVATE ${VIENNA_PATH} ${VIENNA_PATH}/.. ${VIENNA_PATH}/ViennaRNA)
+target_link_libraries (lara ${SEQAN_LIBRARIES} zzz)
 message(STATUS "The requirements where met.")
 
 # ----------------------------------------------------------------------------

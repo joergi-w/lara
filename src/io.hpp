@@ -56,9 +56,9 @@
 
 #ifdef VIENNA_RNA_FOUND
 extern "C" {
-    #include <ViennaRNA/utils.h>
+//    #include <ViennaRNA/utils.h>
     #include <ViennaRNA/fold_vars.h>
-    #include <ViennaRNA/fold.h>
+//    #include <ViennaRNA/fold.h>
     #include <ViennaRNA/part_func.h>
 }
 #endif
@@ -270,13 +270,13 @@ private:
         seqan::append(rnaRecord.bppMatrGraphs, bppMatrGraph);
 
         // Compute the fixed structure with ViennaRNA.
-        auto * structure = new char[length + 1];
-        initialize_fold(static_cast<int>(length));
-        float energy = fold(seqan::toCString(sequence), structure);
-        seqan::bracket2graph(rnaRecord.fixedGraphs, seqan::CharString{structure}); // appends the graph
-        seqan::back(rnaRecord.fixedGraphs).energy = energy;
-        seqan::back(rnaRecord.fixedGraphs).specs = seqan::CharString{"ViennaRNA fold"};
-        delete[] structure;
+//        auto * structure = new char[length + 1];
+//        initialize_fold(static_cast<int>(length));
+//        float energy = fold(seqan::toCString(sequence), structure);
+//        seqan::bracket2graph(rnaRecord.fixedGraphs, seqan::CharString{structure}); // appends the graph
+//        seqan::back(rnaRecord.fixedGraphs).energy = energy;
+//        seqan::back(rnaRecord.fixedGraphs).specs = seqan::CharString{"ViennaRNA fold"};
+//        delete[] structure;
 #else
         std::cerr << "Cannot compute a structure without the ViennaRNA library. Please install ViennaRNA and try again."
                   << std::endl;
