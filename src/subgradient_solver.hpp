@@ -201,33 +201,36 @@ public:
 
         // Initialise the solvers.
         solvers.reserve(num_parallel);
+        size_t seq = simd_len; // index of current sequence
+        int ali = -1;          // index of current alignment
 
-        for (iter = inputPairs.cbegin(); solvers.size() < num_parallel; ++iter)
+        for (iter = inputPairs.cbegin(); solvers.size() < num_parallel; ++iter, ++seq)
         {
-            size_t const aliIdx = solvers.size() / simd_len;
-            size_t const seqIdx = solvers.size() % simd_len;
             auto const len = std::make_pair(length(store[iter->first].sequence), length(store[iter->second].sequence));
 
             // Once for each chunk of size simd_len.
-            if (seqIdx == 0)
+            if (seq == simd_len)
             {
+                seq = 0;
+                ++ali;
+
                 // Initialise the alignments.
-                seqan::reserve(alignments[aliIdx].first, simd_len);
-                seqan::reserve(alignments[aliIdx].second, simd_len);
+                seqan::reserve(alignments[ali].first, simd_len);
+                seqan::reserve(alignments[ali].second, simd_len);
 
                 // Initialise the scores.
-                scores[aliIdx].init(len.first, std::min(max_2nd_length, len.first), go, ge);
+                scores[ali].init(len.first, std::min(max_2nd_length, len.first), go, ge);
                 _LOG(2, "     Resize matrix: " << len.first << "*" << std::min(max_2nd_length, len.first) << std::endl);
             }
 
             // Fill the alignments.
             appendValue(seq1, PrefixType(integerSeq, len.first));
             appendValue(seq2, PrefixType(integerSeq, len.second));
-            appendValue(alignments[aliIdx].first, GappedSeq(seqan::back(seq1)));
-            appendValue(alignments[aliIdx].second, GappedSeq(seqan::back(seq2)));
+            appendValue(alignments[ali].first, GappedSeq(seqan::back(seq1)));
+            appendValue(alignments[ali].second, GappedSeq(seqan::back(seq2)));
 
             // Fill the solvers.
-            solvers.emplace_back(*iter, store, params, &(scores[aliIdx]), seqIdx);
+            solvers.emplace_back(*iter, store, params, &(scores[ali]), seq);
         }
         SEQAN_ASSERT_EQ(num_parallel, solvers.size());
         SEQAN_ASSERT_EQ(num_parallel, seqan::length(seq1));
@@ -266,13 +269,12 @@ public:
                 durationThreadAlign += Clock::now() - timeCurrent;
 
                 // Evaluate each alignment result and adapt multipliers.
-                for (size_t idx = interval.first; idx < interval.second; ++idx)
+                for (size_t seqIdx = 0; seqIdx + interval.first < interval.second; ++seqIdx)
                 {
-                    size_t const seqIdx = idx % simd_len;
                     if (!at_work[seqIdx])
                         continue;
 
-                    SubgradientSolver & ss = solvers[idx];
+                    SubgradientSolver & ss = solvers[seqIdx + interval.first];
                     ss.currentUpperBound = res[seqIdx] / factor2int; // global alignment result
 
                     timeCurrent = Clock::now();
@@ -353,6 +355,7 @@ public:
                             scores[aliIdx].reset(seqIdx);
 
                             // Set new sequences.
+                            size_t const idx = seqIdx + interval.first;
                             seq1[idx] = PrefixType(integerSeq, length(store[currentSeqIdx.first].sequence));
                             seq2[idx] = PrefixType(integerSeq, length(store[currentSeqIdx.second].sequence));
                             alignments[aliIdx].first[seqIdx] = GappedSeq(seq1[idx]);

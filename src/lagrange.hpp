@@ -98,11 +98,11 @@ private:
             return edgeId % dim;
         }
 
-        bool nonCrossing (size_t idA, size_t idB) const
+        bool nonCrossing (size_t idA, size_t srcB, size_t trgB) const
         {
-            bool const smallerA = source(idA) < source(idB) && target(idA) < target(idB);
-            bool const smallerB = source(idB) < source(idA) && target(idB) < target(idA);
-            return smallerA || smallerB;
+            size_t const srcA = source(idA);
+            size_t const trgA = target(idA);
+            return (srcA < srcB && trgA < trgB) || (srcB < srcA && trgB < trgA);
         }
     } edges;
 
@@ -276,7 +276,7 @@ public:
                 for (Contact & tail : tailContact)
                 {
                     size_t partnerIdx = edges.index(head.second, tail.second);
-                    if (edges.active[partnerIdx] && edges.nonCrossing(edgeIdx, partnerIdx))
+                    if (edges.active[partnerIdx] && edges.nonCrossing(edgeIdx, head.second, tail.second))
                     {
                         _LOG(3, "     dual idx " << dimension << " = (" << edges.source(edgeIdx)
                                                  << "-" << edges.target(edgeIdx) << ") -> (" << edges.source(partnerIdx)
