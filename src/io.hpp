@@ -65,6 +65,10 @@ extern "C" {
 }
 #endif
 
+#ifdef WITH_OPENMP
+#include <omp.h>
+#endif
+
 namespace lara
 {
 
@@ -91,11 +95,12 @@ public:
         // If not present, compute the weighted interaction edges using ViennaRNA functions.
         Clock::time_point timeRnaFold = Clock::now();
         bool const logScoring = params.structureScoring == ScoringMode::LOGARITHMIC;
-        bool usedVienna = false;
-        for (seqan::RnaRecord & record : *this)
-            computeStructure(record, usedVienna, logScoring);
-        if (usedVienna)
-            _LOG(1, "   * compute missing base pair probabilities with RNAfold -> " << timeDiff(timeRnaFold) << "ms\n");
+
+        #pragma omp parallel for num_threads(params.threads)
+        for (size_t idx = 0ul; idx < size(); ++idx)
+            computeStructure(at(idx), logScoring);
+
+        _LOG(1, "   * compute base pair probabilities with RNAfold -> " << timeDiff(timeRnaFold) << "ms\n");
 
         if (!params.dotplotFiles.empty())
         {
@@ -273,56 +278,50 @@ private:
         append(rnaRecord.fixedGraphs, fixedGraph);
     }
 
-    static void computeStructure(seqan::RnaRecord & rnaRecord, bool & usedVienna, bool logStructureScoring)
+    // Compute the partition function and base pair probabilities with ViennaRNA.
+    static void computeStructure(seqan::RnaRecord & rnaRecord, bool logStructureScoring)
     {
         if (!seqan::empty(rnaRecord.bppMatrGraphs))
             return;
 
 #ifdef VIENNA_RNA_FOUND
-        usedVienna = true;
         size_t const length = seqan::length(rnaRecord.sequence);
         seqan::String<char, seqan::CStyle> sequence{rnaRecord.sequence};
 
-        // Compute the partition function and base pair probabilities with ViennaRNA.
-        seqan::RnaStructureGraph bppMatrGraph;
-        init_pf_fold(static_cast<int>(length));
-        bppMatrGraph.energy = pf_fold(seqan::toCString(sequence), nullptr);
-        bppMatrGraph.specs = seqan::CharString{"ViennaRNA pf_fold"};
+        // Set model details.
+        vrna_md_t md;
+        vrna_md_set_default(&md);
+        md.backtrack = 0; // no need to backtrack MFE structure
 
+        // Calculate MFE and rescale Boltzmann factors for partition function.
+        vrna_fold_compound_t *vc = vrna_fold_compound(seqan::toCString(sequence), &md, 0);
+        double mfe = vrna_mfe(vc, nullptr);
+        vrna_exp_params_rescale(vc, &mfe);
+
+        // Calculate base pair probabilities and store the MFE structure.
+        seqan::RnaStructureGraph bppMatrGraph;
+        // char *structure = new char[length + 1];
+        bppMatrGraph.energy = vrna_pf(vc, nullptr);
+        // seqan::bracket2graph(rnaRecord.fixedGraphs, seqan::CharString{structure}); // appends the graph
+        // delete[] structure;
+        plist *pl = vrna_plist_from_probs(vc, 1e-3); // cut_off 0.001
+        vrna_fold_compound_free(vc);
+
+        // Create the interaction graph.
         for (size_t idx = 0u; idx < length; ++idx)
             seqan::addVertex(bppMatrGraph.inter);
 
-        float const  minProb = 0.003f; // taken from LISA > Lara
-        for (size_t i = 0u; i < length; ++i)
-        {
-            for (size_t j = i + 1u; j < length; ++j)
-            {
-                if (logStructureScoring)
-                {
-                    if (pr[iindx[i + 1] - (j + 1)] > minProb)
-                        seqan::addEdge(bppMatrGraph.inter, i, j, log(pr[iindx[i + 1] - (j + 1)] / minProb));
-                }
-                else
-                {
-                    if (pr[iindx[i + 1] - (j + 1)] > minProb)
-                        seqan::addEdge(bppMatrGraph.inter, i, j, pr[iindx[i + 1] - (j + 1)]);
-                }
-            }
-        }
-        seqan::append(rnaRecord.bppMatrGraphs, bppMatrGraph);
+        for (plist *iter = pl; iter->i != iter->j; ++iter)
+            seqan::addEdge(bppMatrGraph.inter, iter->i - 1, iter->j - 1, iter->p);
 
-        // Compute the fixed structure with ViennaRNA.
-        auto * structure = new char[length + 1];
-        initialize_fold(static_cast<int>(length));
-        float energy = fold(seqan::toCString(sequence), structure);
-        seqan::bracket2graph(rnaRecord.fixedGraphs, seqan::CharString{structure}); // appends the graph
-        seqan::back(rnaRecord.fixedGraphs).energy = energy;
-        seqan::back(rnaRecord.fixedGraphs).specs = seqan::CharString{"ViennaRNA fold"};
-        delete[] structure;
+        free(pl);
+
+        bppMatrGraph.specs = seqan::CharString{"ViennaRNA vrna_pf"};
+        seqan::append(rnaRecord.bppMatrGraphs, bppMatrGraph);
+        (void) logStructureScoring;
 #else
         std::cerr << "Cannot compute a structure without the ViennaRNA library. Please install ViennaRNA and try again."
                   << std::endl;
-        (void) usedVienna;
         (void) logStructureScoring;
         exit(1);
 #endif
